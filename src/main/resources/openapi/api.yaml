@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Skeleton API
+  version: 0.0.1
+  description: >-
+    Contract-first source of truth (springboot.md §6). The OpenAPI generator produces the contracts
+    under adapter/in/contracts. Schemas end ...RequestBody / ...ResponseBody so the suffix carries
+    the request/response direction. The first real path arrives with the walking skeleton.
+paths: {}
+components:
+  schemas:
+    PingResponseBody:
+      type: object
+      description: Placeholder response contract proving contract-first codegen is wired.
+      properties:
+        message:
+          type: string
+      required:
+        - message

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Static-analysis gate for the "name every literal" rule (springboot.md §8) — magic NUMBERS.
+  Wire via the maven-checkstyle-plugin (bound to `verify`) or the Gradle checkstyle plugin, on
+  MAIN sources only (never test sources).
+
+  Rollout: start ADVISORY (severity="warning" — reported, non-failing) and flip to a hard gate
+  (severity="error") once the codebase is clean. Magic STRINGS / should-be-an-enum are NOT linted
+  here (too noisy) — they are covered by the independent-verify semantic-rules checklist (loop.md §1).
+-->
+<module name="Checker">
+  <property name="severity" value="warning"/>   <!-- advisory-first; change to "error" when clean -->
+  <module name="TreeWalker">
+    <module name="MagicNumber">
+      <!-- Non-magic by construction; extend per project (e.g. HTTP codes belong in HttpStatus). -->
+      <property name="ignoreNumbers" value="-1, 0, 1, 2"/>
+      <property name="ignoreHashCodeMethod" value="true"/>
+      <property name="ignoreAnnotation" value="true"/>
+      <property name="constantWaiverParentToken"
+                value="TYPECAST, METHOD_CALL, EXPR, ARRAY_INIT, UNARY_MINUS, UNARY_PLUS,
+                       ELIST, STAR, ASSIGN, PLUS, MINUS, DIV, LITERAL_NEW"/>
+    </module>
+  </module>
+</module>

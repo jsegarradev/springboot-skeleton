@@ -1,0 +1,15 @@
+{
+  "//": "Pipeline-entry hook. Merge into the project .claude/settings.json. A UserPromptSubmit hook injects the omc-pipeline.md directive into context on EVERY prompt, so OMC deterministically enters the pipeline. This is steering (guarantees the directive is present), not a hard gate (does not guarantee obedience) — the gates.md gate stack is the backstop.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'PIPELINE: this repo follows omc-pipeline.md — begin any build request with deep-interview, then run the autonomous ralplan -> ultragoal create-goals -> complete-goals chain, driving loop.md per slice with the gates.md gate stack as definition-of-done. No approval pause after the interview.'"
+          }
+        ]
+      }
+    ]
+  }
+}

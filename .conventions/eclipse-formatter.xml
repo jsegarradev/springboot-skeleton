@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  ai-scaffold Java formatter profile (Spotless eclipse().configFile).
+  Standard Eclipse built-in profile with three overrides: space indentation
+  size 4, and 120-column line split. Everything else (K&R/end-of-line braces,
+  space before brace, switch indentation) is the Eclipse default. Spotless owns
+  Java formatting outright — no hand-maintained conventions on top.
+-->
+<profiles version="21">
+  <profile kind="CodeFormatterProfile" name="ai-scaffold" version="21">
+    <setting id="org.eclipse.jdt.core.formatter.tabulation.char" value="space"/>
+    <setting id="org.eclipse.jdt.core.formatter.tabulation.size" value="4"/>
+    <setting id="org.eclipse.jdt.core.formatter.indentation.size" value="4"/>
+    <setting id="org.eclipse.jdt.core.formatter.lineSplit" value="120"/>
+    <setting id="org.eclipse.jdt.core.formatter.comment.line_length" value="120"/>
+    <setting id="org.eclipse.jdt.core.formatter.insert_new_line_at_end_of_file_if_missing" value="insert"/>
+  </profile>
+</profiles>

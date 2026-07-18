@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# ai-scaffold commit-msg: enforce the bracket-tag scheme.
+#   Foundational (single tag):  [scaffold] [arch] [ci] [chore] [docs] [refactor]
+#   Feature (double tag):        [<kebab-slug>][impl|test|fix|docs|refactor]
+# The first non-comment, non-empty line (the subject) must match.
+set -uo pipefail
+msg_file="$1"
+subject="$(grep -vE '^[[:space:]]*#' "$msg_file" | grep -vE '^[[:space:]]*$' | head -1)"
+
+single='^\[(scaffold|arch|ci|chore|docs|refactor)\] .+'
+feature='^\[[a-z0-9]+(-[a-z0-9]+)*\]\[(impl|test|fix|docs|refactor)\] .+'
+
+if [[ "$subject" =~ $single ]] || [[ "$subject" =~ $feature ]]; then
+    exit 0
+fi
+
+cat >&2 <<EOF
+[commit-msg] REJECTED: "$subject"
+
+Use the bracket-tag scheme:
+  Foundational:  [scaffold] msg   [arch] msg   [ci] msg   [chore] msg   [docs] msg   [refactor] msg
+  Feature:       [<slug>][impl] msg    e.g. [accounts][impl] add list endpoint
+                 types: impl | test | fix | docs | refactor   (slug is kebab-case)
+EOF
+exit 1

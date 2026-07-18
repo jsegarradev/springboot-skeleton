@@ -1,0 +1,2 @@
+# Liquibase changesets live here: NNN_<verb>_<subject>.sql (springboot.md §7). First real one
+# arrives with the walking skeleton / first feature slice.

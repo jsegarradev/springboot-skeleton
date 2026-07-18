@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# ai-scaffold post-commit: gated, NON-blocking live/e2e tests.
+# Runs only if the project defines a live suite AND opts in via .ai-scaffold/live-tests.sh.
+# Never fails the commit — it has already happened; this only reports.
+set -uo pipefail
+set +u  # sdkman/nvm reference unbound vars; don't let sourcing abort the hook
+[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh" >/dev/null 2>&1
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+set -u
+root="$(git rev-parse --show-toplevel)"
+runner="$root/.ai-scaffold/live-tests.sh"
+
+if [ ! -x "$runner" ]; then
+    exit 0   # no live suite wired up -> skip silently
+fi
+
+echo "[post-commit] running live/e2e suite (non-blocking)..."
+if bash "$runner"; then
+    echo "[post-commit] live tests PASSED"
+else
+    echo "[post-commit] live tests FAILED (commit already recorded — review before pushing)"
+fi
+exit 0

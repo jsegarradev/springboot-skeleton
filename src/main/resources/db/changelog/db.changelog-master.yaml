@@ -1,0 +1,8 @@
+# Master changelog: a thin includeAll of the changes/ directory (springboot.md §7).
+# path is relative to THIS file (relativeToChangelogFile: true), so it is `changes/`, not the full
+# `db/changelog/changes/` — the latter double-prefixes and silently runs 0 changesets.
+databaseChangeLog:
+  - includeAll:
+      path: changes/
+      relativeToChangelogFile: true
+      errorIfMissingOrEmpty: false

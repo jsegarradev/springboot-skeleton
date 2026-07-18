@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# ai-scaffold pre-commit — FAST checks only (keep small commits quick):
+#   1. (monorepo) a commit must not span multiple components (e.g. backend + frontend).
+#   2. format-check + compile. Full test suites run in CI, NOT here (no layer duplication).
+# Auto-detects backend (Maven) and frontend (Angular) if present.
+set -uo pipefail
+# Hooks run in a non-interactive shell (no ~/.bashrc) — load userspace toolchain
+# managers so java/mvn (SDKMAN) and node/npx (nvm) are on PATH. No-op if absent.
+# NOTE: disable `-u` around sourcing — sdkman/nvm reference unbound vars and would
+# otherwise abort the whole hook under `set -u`.
+set +u
+[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh" >/dev/null 2>&1
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+set -u
+root="$(git rev-parse --show-toplevel)"
+fail=0
+
+# Top-level dirs of the staged files (used both by the one-component rule and to
+# scope the per-language checks to only the component this commit actually touches).
+staged="$(git diff --cached --name-only)"
+touched_dirs="$(printf '%s\n' "$staged" | awk -F/ 'NF>1{print $1}' | sort -u)"
+
+# is_touched <component-dir>: true if this commit touches that component.
+# A component AT the repo root (single/polyrepo) owns every staged file, so it is
+# always considered touched; a component in a subdir must appear in touched_dirs.
+is_touched() {
+    [ "$1" = "$root" ] && return 0
+    printf '%s\n' "$touched_dirs" | grep -qxF "$(basename "$1")"
+}
+
+# --- Rule: one commit = one component (monorepo isolation) ---
+# A "component root" is a top-level dir containing pom.xml or package.json.
+# In single/polyrepo topologies there is <=1 such dir, so this check is inert.
+if [ -n "$staged" ]; then
+    comp_roots="$(cd "$root" && for d in */; do d="${d%/}"; { [ -f "$d/pom.xml" ] || [ -f "$d/package.json" ]; } && echo "$d"; done | sort -u)"
+    if [ -n "$comp_roots" ]; then
+        spanned="$(comm -12 <(printf '%s\n' "$comp_roots") <(printf '%s\n' "$touched_dirs"))"
+        if [ "$(printf '%s\n' "$spanned" | grep -c .)" -gt 1 ]; then
+            echo "[pre-commit] BLOCKED: a single commit may not span multiple components:"
+            printf '%s\n' "$spanned" | sed 's/^/  - /'
+            echo "  Split into one commit per component (stage & commit them separately)."
+            echo "  Override intentionally with 'git commit --no-verify'."
+            exit 1
+        fi
+    fi
+fi
+
+# --- Backend (Maven): format-check + compile (NO test run — CI owns tests) ---
+# Uses the project's ./mvnw wrapper (pinned Maven) when present, falling back to a
+# system `mvn`. Only runs when THIS commit touches the backend (so a frontend-only
+# commit in a monorepo doesn't pay the JVM cost or trip over unrelated backend state).
+if [ -f "$root/pom.xml" ] || ls "$root"/*/pom.xml >/dev/null 2>&1; then
+    # root aggregator if present, else the first module
+    be_dir="$([ -f "$root/pom.xml" ] && echo "$root" || dirname "$(ls "$root"/*/pom.xml 2>/dev/null | head -1)")"
+    if is_touched "$be_dir"; then
+        mvn_cmd="mvn"; [ -x "$be_dir/mvnw" ] && mvn_cmd="./mvnw"
+        echo "[pre-commit] backend: $mvn_cmd spotless:check + test-compile ($be_dir)"
+        # Honor the project's pinned JDK: if the backend has a .sdkmanrc, switch to it. SDKMAN
+        # otherwise loads the *default* JDK, which misfires when default != pinned (e.g. Lombok on
+        # JDK 25). `set +u` because sdkman's functions reference unbound vars under `set -u`.
+        ( set +u; cd "$be_dir" \
+            && { [ ! -f .sdkmanrc ] || sdk env >/dev/null 2>&1 \
+                 || echo "[pre-commit] note: .sdkmanrc JDK not installed — run 'sdk env install' (using default JDK for now)"; } \
+            && { $mvn_cmd -q -o spotless:check test-compile 2>/dev/null || $mvn_cmd -q spotless:check test-compile; } ) \
+            || { echo "[pre-commit] backend format/compile FAILED"; fail=1; }
+    fi
+fi
+
+# --- Frontend (Angular): eslint + type-check (NO ng test — CI owns tests) ---
+# Type-check via the app tsconfig (tsconfig.app.json) when present — the root
+# tsconfig.json can be a solution-style config that type-checks a different (or empty)
+# file set than the app build. Only runs when THIS commit touches the frontend.
+fe_pkg="$(grep -rl '"@angular/core"' "$root"/*/package.json "$root/package.json" 2>/dev/null | head -1)"
+if [ -n "${fe_pkg:-}" ]; then
+    fe_dir="$(dirname "$fe_pkg")"
+    if is_touched "$fe_dir"; then
+        tsconfig="tsconfig.json"; [ -f "$fe_dir/tsconfig.app.json" ] && tsconfig="tsconfig.app.json"
+        echo "[pre-commit] frontend: eslint + tsc -p $tsconfig --noEmit ($fe_dir)"
+        ( cd "$fe_dir" && npx --no-install eslint . && npx --no-install tsc -p "$tsconfig" --noEmit ) \
+            || { echo "[pre-commit] frontend lint/type-check FAILED"; fail=1; }
+    fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+    echo "[pre-commit] blocked (format/compile). Fix, or 'git commit --no-verify' to override. Full tests run in CI."
+    exit 1
+fi
+echo "[pre-commit] OK (fast checks; full tests in CI)"

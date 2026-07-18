@@ -212,13 +212,16 @@
                             <output>${project.build.directory}/generated-sources/openapi</output>
                             <apiPackage>dev.jsegarra.skeleton.adapter.in.contracts</apiPackage>
                             <modelPackage>dev.jsegarra.skeleton.adapter.in.contracts</modelPackage>
-                            <generateApis>false</generateApis>
+                            <generateApis>true</generateApis>
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <importMappings>Nullable=org.jspecify.annotations.Nullable</importMappings>
                             <configOptions>
                                 <useSpringBoot4>true</useSpringBoot4>
                                 <useJakartaEe>true</useJakartaEe>
+                                <!-- Interface-only, no default method bodies: controllers implement the
+                                     generated API interfaces; no ApiUtil supporting file needed. -->
                                 <interfaceOnly>true</interfaceOnly>
+                                <skipDefaultInterface>true</skipDefaultInterface>
                                 <openApiNullable>false</openApiNullable>
                                 <!-- Plain POJOs: no Swagger @Schema (no springdoc/swagger dep needed). -->
                                 <documentationProvider>none</documentationProvider>

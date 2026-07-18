@@ -1,6 +1,7 @@
 package dev.jsegarra.skeleton.config;
 
 import dev.jsegarra.skeleton.adapter.in.contracts.response.ApiError;
+import dev.jsegarra.skeleton.domain.exception.DummyNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,6 +17,13 @@ public class GlobalExceptionHandler {
 
     private static final String UNEXPECTED_CODE = "INTERNAL_ERROR";
     private static final String UNEXPECTED_MESSAGE = "Unexpected error";
+    private static final String DUMMY_NOT_FOUND_CODE = "DUMMY_NOT_FOUND";
+
+    @ExceptionHandler(DummyNotFoundException.class)
+    public ResponseEntity<ApiError> handleDummyNotFound(final DummyNotFoundException exception) {
+        final ApiError body = new ApiError(DUMMY_NOT_FOUND_CODE, exception.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(final Exception exception) {

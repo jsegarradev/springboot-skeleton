@@ -3,6 +3,7 @@ package dev.jsegarra.skeleton.adapter.out;
 import dev.jsegarra.skeleton.domain.value.Dummy;
 import dev.jsegarra.skeleton.port.out.DummyPort;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,15 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
  * domain. Transactions live on the Spring side (springboot.md §3, §7).
  */
 @Component
+@RequiredArgsConstructor
 public class DummyPersistenceAdapter implements DummyPort {
 
     private final DummyRepository repository;
     private final DummyEntityMapper mapper;
-
-    public DummyPersistenceAdapter(final DummyRepository repository, final DummyEntityMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
-    }
 
     @Override
     @Transactional(readOnly = true)

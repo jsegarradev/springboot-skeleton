@@ -85,6 +85,8 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
   a semantic-rules-checklist item so independent-verify catches an unjustified hand-written ctor.
 - **→ not promoted (2026-07-20):** §3 already mandates `@RequiredArgsConstructor` — this is skeleton-code
   drift, not a convention change. Fix belongs in the skeleton sources; kept here as an open project fix.
+- **→ resolved 2026-07-21** (loop slice): `DummyController`, `DummyPersistenceAdapter`, `DummyDataLoader`
+  now use `@RequiredArgsConstructor` + `final` fields. Full gate stack green (mechanical + arch + live-verify).
 
 ## 2026-07-20 — §5 references `DomainException` but nothing defines or scaffolds it
 - **Where:** scaffold-project (base scaffolding) · Spring Boot · implicates `springboot.md#3` (base scaffolding) + `#5`

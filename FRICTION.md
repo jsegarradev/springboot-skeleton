@@ -14,6 +14,22 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
 
 <!-- Newest on top. Copy the block below for each entry. -->
 
+## 2026-07-21 — Run-surface template can't satisfy the live-verify gate out of the box (no e2e-secret wiring, no `.dockerignore`)
+- **Where:** walking-skeleton / scaffold-project (run surface + live-verify gate) · framework-agnostic (the gap) + Spring Boot (the concrete wiring) · implicates `templates/docker-compose.yml` + `templates/Dockerfile` + `skills/walking-skeleton`
+- **What happened:** proving `make run` end-to-end against the local composed stack (the loop's live-verify DoD when
+  deploy is optional), the freshly-synced run surface fell two artifacts short: (1) `docker-compose.yml` never fed the
+  **e2e secret** into the `app` container, so the secret-guarded `/internal/e2e` surface 404s and
+  `post-deploy-verify.sh` — the live-verify gate itself — cannot run; (2) no **`.dockerignore`**, so `COPY . .` pulls the
+  host's `target/` into the build context, risking the runtime stage's `COPY target/*.jar` matching a stale host jar. The
+  run surface makes the app *boot*, but not *live-verifiable*, which is the actual gate.
+- **How resolved:** added `E2E_SECRET: ${E2E_SECRET:-local-e2e-secret}` to the compose `app` env (binds `e2e.secret` via
+  Spring relaxed binding; verifier uses the same value) + a `.dockerignore` (target/, .git/, .conventions/, .claude/).
+  Proven: `make run` → db healthy → app UP → `post-deploy-verify.sh` PASS (`{"ran":true,"fields":{"dummy":"walking-skeleton"}}`).
+- **Proposed change:** the run-surface templates should ship **live-verify-ready**, not just boot-ready — compose wires the
+  e2e-secret env (parameterized, matching the verifier's `E2E_SECRET`), and a `.dockerignore` ships alongside the
+  Dockerfile. Tie to `walking-skeleton`: its "prove `make run` once" step should run the **verifier**, not just a health
+  check, so this gap can't pass unnoticed.
+
 ## 2026-07-20 — Scaffold ships no Makefile / container entrypoint → not runnable on a clean machine in ≤2 commands
 - **Where:** scaffold-project / walking-skeleton (green-skeleton output) · framework-agnostic (the entrypoint contract) + Spring Boot (the concrete artifacts) · implicates the scaffold-project & walking-skeleton skills, and `gates.md` (the "human-visible running app" gate)
 - **What happened:** the freshly scaffolded skeleton has **no Makefile and no Dockerfile/docker-compose**. The only documented run path is `./mvnw spring-boot:run` against H2 — which silently assumes the author's box already has **JDK 25 + Maven + (for the prod profile) Postgres** installed and configured. To run it as intended, a fresh machine needs several manual setup steps, and JDK 25 is bleeding-edge so a clean machine almost certainly lacks it. There is no single toolchain-agnostic entrypoint and nothing that stands up the datastore. Surfaced while adapting the skeleton for an external take-home that explicitly **requires a Makefile with a `run` target** and states the app "will be run on a clean machine with almost no dependencies … one or two commands at most." The conventions optimize the *inner dev-loop* but never produce a portable *"here is how anyone runs this"* surface — so the walking-skeleton's own "human-visible running app" gate only holds on the author's pre-provisioned machine, not a clean one.

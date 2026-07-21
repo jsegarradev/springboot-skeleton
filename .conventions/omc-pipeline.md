@@ -15,13 +15,15 @@ first. (Pure questions that aren't work requests skip this.)
    Architect → Critic to approval. **Plan to `loop.md` from the start:** decompose into vertical
    slices in dependency order (per each `<framework>.md`), **plan each slice's live-test surface** (the
    endpoints/specs it must provision to be live-verifiable), and set each slice's acceptance criteria
-   to the `gates.md` gate stack (arch tests · CI green · deployed · live-verify). Proceed past the
+   to the `gates.md` gate stack (arch tests · CI green · live-verify on the assembled system — the
+   deployed build where there's a deploy target, else the local composed stack). Proceed past the
    built-in `pending approval` stop.
 3. **`ultragoal create-goals`** *(autonomous)* — turn the consensus plan into an ordered goal set
    where **each goal = one `loop.md` slice**; persist plan + ledger under `.omc/ultragoal/`.
 4. **`ultragoal complete-goals`** *(autonomous, looped)* — execute each goal through the **`loop.md`
-   per-slice loop** (implement + tests → mechanical gate → independent verify → commit → CI → deploy →
-   live-verify). A goal is done only when the full `gates.md` stack is green; the final goal also
+   per-slice loop** (implement + tests → mechanical gate → independent verify → commit → CI →
+   (deploy if targeted) → live-verify on the assembled system). A goal is done only when the full
+   `gates.md` stack is green; the final goal also
    passes ai-slop-cleaner + verification + `$code-review`. On any gate/CI/live-verify failure, loop
    (fix, ≤3 attempts, else re-slice); `record-review-blockers` instead of marking a goal complete.
    At each goal checkpoint, record a one-line **process-friction** note to `FRICTION.md`

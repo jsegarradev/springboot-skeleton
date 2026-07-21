@@ -47,16 +47,29 @@ is present, stop and hand off to `adopt-conventions`.
    - **Angular** — `ng new … --routing --style=scss --ssr=false --skip-git`; install PrimeNG +
      pinned deps; `core/features/shared` structure; ESLint `@stylistic`; Playwright.
    - **Monorepo** — `backend/` + `frontend/`, each scaffolded as above.
+   - **Run surface (every stack)** — emit a `Makefile` (`run`/`test`/`build`/`down`), a multi-stage
+     `Dockerfile`, and a `docker-compose.yml` wiring the app to its engine (healthcheck +
+     `service_healthy`) from `templates/`, parameterized to the project's engine / build tool / JDK — so
+     a clean machine runs it in ≤2 commands (`loop.md` baseline).
 5. **Install the gate stack** (`gates.md` baseline) from `templates/`: hooks → `.githooks/`;
-   `ci.yml` → `.github/workflows/`; `ArchitectureTest` (+ `ModularityTest` if monolith); 
+   `ci.yml` → `.github/workflows/` (**emit only the component jobs the repo holds** — a single-stack
+   scaffold drops the other stack's job and its language setup; monorepo keeps both); `ArchitectureTest`
+   (+ `ModularityTest` if monolith); 
    `post-deploy-verify.sh` → `scripts/`; run `protect-main.sh` (best-effort — it skips gracefully when
    the plan lacks private-repo protection; `main` being unprotected on a private Free-plan repo is
    expected); merge `pipeline-hook.json` into `.claude/settings.json`; copy `FRICTION.md` to the repo root.
 6. **Copy the conventions set** into the repo (so it travels with the project) — **include
    `vps-deploy.md` only if the shared-VPS deploy target was chosen** (step 1); omit it otherwise; if
    the harness uses `.claude/skills/`, place these three skills there too.
+   - **Git-ignore the agent/tooling artifacts by default** — `.conventions/`, `.claude/`, and
+     `FRICTION.md` are the agent's local workflow scaffolding + process ledger, **not** project source;
+     committing them bloats history and mixes convention/process churn into feature diffs. Add them to
+     `.gitignore` unless the user **opts in** to committing them (e.g. wants a fully self-contained repo,
+     or a team-shared friction log). Ask once; default is ignore. They stay on disk either way, so
+     `sync-conventions` / `promote-friction` still operate on the local copies.
 7. **Confirm a green skeleton** — build + tests green on the empty skeleton (`./mvnw verify`;
-   `ng build` + `ng test --watch=false`) and the architecture tests pass.
+   `ng build` + `ng test --watch=false`) and the architecture tests pass; and **`make run` stands the
+   app up on a clean machine (Docker only)** (the walking-skeleton run proves the served slice).
 8. **Write the `README.md`** — what the app is, the stack, how to run + test locally, and a pointer to
    `AGENTS.md` (the conventions and how to start the session). Replace any generator boilerplate
    (e.g. Spring's `HELP.md`).
@@ -64,5 +77,6 @@ is present, stop and hand off to `adopt-conventions`.
    the chosen identity, no AI trace (`git.md`).
 
 ## Output
-A conventions-compliant skeleton with the gate stack installed, a green build, and a `README`. Next:
+A conventions-compliant skeleton with the gate stack installed, a green build, a clean-machine run
+surface (`make run`), and a `README`. Next:
 run `walking-skeleton` to prove the stack end-to-end before real features.

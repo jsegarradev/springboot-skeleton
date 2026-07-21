@@ -1,0 +1,36 @@
+# Clean-machine run: the app + its datastore, reproducibly (springboot.md §2 / §7). `make run` builds
+# and starts this. The DB healthcheck + `service_healthy` gate is load-bearing — the app applies
+# Liquibase migrations on boot and would otherwise race an unready DB. → ./docker-compose.yml
+# Swap the `db` image + healthcheck for the project's real engine. H2 never appears here (it is
+# test-only); the running app always uses the real engine, fed via the SPRING_DATASOURCE_* env below.
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/appdb
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17            # the project's real engine — swap per project
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+volumes:
+  dbdata:

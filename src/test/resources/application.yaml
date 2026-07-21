@@ -1,0 +1,18 @@
+# Test-only datastore (springboot.md §7): H2 in the prod engine's PostgreSQL compatibility mode. The
+# running app never uses H2 — this config lives only on the test classpath so the container-free suite
+# stays fast. @SpringBootTest picks this up; @DataJpaTest uses the embedded H2 on the test classpath.
+spring:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  datasource:
+    url: jdbc:h2:mem:appdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true

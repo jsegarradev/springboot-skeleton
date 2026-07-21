@@ -12,6 +12,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/appdb
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
+      # Guards the /internal/e2e live-verify surface (§10.1). Binds to e2e.secret via relaxed binding.
+      # The local live-verify (make run + post-deploy-verify.sh) must use the SAME value.
+      E2E_SECRET: ${E2E_SECRET:-local-e2e-secret}
     depends_on:
       db:
         condition: service_healthy

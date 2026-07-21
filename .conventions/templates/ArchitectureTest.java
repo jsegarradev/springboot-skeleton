@@ -34,7 +34,7 @@ class ArchitectureTest {
     // (A2) no framework annotations on core types
     @ArchTest
     static final ArchRule core_has_no_framework_annotations = noClasses()
-        .that().resideInAnyPackage("..domain..", "..usecase..")
+        .that().resideInAnyPackage("..domain..", "..usecase..", "..port..")
         .should().beAnnotatedWith("org.springframework.stereotype.Service")
         .orShould().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
         .orShould().beAnnotatedWith("jakarta.persistence.Entity");
@@ -88,7 +88,9 @@ class ArchitectureTest {
             }
         });
 
-    // NOTE: JMolecules is the semantic alternative — annotate types @Domain/@Application/@Port/@Adapter
-    // and replace the hexagon rules (A1)-(A6) with the ready-made `jmolecules-archunit` rules. (A7) is an
-    // extra ISP guard beyond JMolecules — keep it either way.
+    // NOTE: JMolecules (layer C, springboot.md §3.1) runs ALONGSIDE these ArchUnit rules, not instead of
+    // them — annotate each ring's package-info with the real stereotypes (@PrimaryPort/@SecondaryPort/
+    // @PrimaryAdapter/@SecondaryAdapter/@Application; there is no @Domain) + the jmolecules-ddd building
+    // blocks on domain types, and let the ready-made `jmolecules-archunit` rules enforce the hexagon too.
+    // (A7) is an extra ISP guard beyond JMolecules — keep it either way.
 }

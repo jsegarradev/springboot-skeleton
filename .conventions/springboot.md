@@ -12,26 +12,29 @@
 - **Spring Boot version-adaptive:** read the major from the generated build file (`pom.xml` /
   `build.gradle`); select starters by their stable dependency IDs (start.spring.io maps them to the
   right artifacts); resolve moved packages from the classpath.
-- **DB (per-project choice):** a real engine in prod (**default PostgreSQL**) + a faithful lighter
-  stand-in for fast tests (**default H2** in the prod engine's compatibility mode). Swap either for the
-  project's actual stack — the conventions below are engine-agnostic; Postgres/H2 are just the defaults.
+- **DB (per-project choice):** a real engine for **every run** (dev / `make run` / prod — **default
+  PostgreSQL**) + **H2 as the fast-test stand-in** (default; the prod engine's compatibility mode). Swap
+  either for the project's actual stack — engine-agnostic; Postgres/H2 are just the defaults. Datasource
+  wiring is **§7's** concern (real engine is the default datasource; H2 is test-scoped).
 - **Port:** backend runs on `8080` (the frontend dev proxy targets it).
 
 **Project dependencies** (declare in the build file):
-- **Spring Boot starters:** `web`, `actuator`, `data-jpa`, `validation`, `h2` (dev/test DB). Actuator
-  provides `/actuator/health` for the post-deploy verifier / live-verify.
+- **Spring Boot starters:** `web`, `actuator`, `data-jpa`, `validation`, `h2` (test DB — `test` scope,
+  §7). Actuator provides `/actuator/health` for the live-verify gate / health check.
 - **Liquibase** (`liquibase` starter) — the schema owner.
-- **Prod DB driver** — default `org.postgresql:postgresql`; swap for the project's engine.
+- **Real-engine driver (every run — dev / `make run` / prod)** — default `org.postgresql:postgresql`;
+  swap for the project's engine. H2 backs only the fast test suite (§7, §10).
 - **OpenAPI generator** (`openapi-generator-maven-plugin`, or the Gradle OpenAPI Generator plugin) +
   the **`org.jspecify:jspecify`** dep — contract-first codegen.
-- **Lombok** — JPA entity boilerplate.
+- **Lombok** — JPA entity boilerplate + Spring-side constructor injection (`@RequiredArgsConstructor`, §3).
 - **MapStruct** + **`lombok-mapstruct-binding`** — domain↔entity and domain↔contract mappers.
 - **Spring Boot test starter** — brings JUnit 5 + Mockito + AssertJ.
 - **ArchUnit** (`archunit-junit5`) — enforcement layer (A).
 - **Spring Modulith** (`spring-modulith-starter-core` + `spring-modulith-starter-test`) — enforcement
   layer (B) + module events. **Monolith only** — optional for a single-context service.
-- **JMolecules** (`jmolecules-ddd` + `jmolecules-architecture-hexagonal` + `jmolecules-archunit`) —
-  enforcement layer (C).
+- **JMolecules** (`jmolecules-ddd` + `jmolecules-hexagonal-architecture` + `jmolecules-archunit`) —
+  enforcement layer (C). (The artifact id word order is `hexagonal-architecture`, unlike the package
+  `org.jmolecules.architecture.hexagonal` — the flipped order is the trap.)
 - **Spotless plugin** (`spotless-maven-plugin`, or Gradle `com.diffplug.spotless`) + the shared
   `eclipse-formatter.xml` — style.
 - **Checkstyle** (`maven-checkstyle-plugin` / Gradle `checkstyle`) + the shared `checkstyle.xml` —
@@ -45,6 +48,16 @@
   `curl -fSs https://start.spring.io/starter.zip -d dependencies=… -o s.zip && unzip s.zip` (the `-f`
   is load-bearing so an HTTP error fails fast instead of writing an error body into the zip).
 - **Replace generator boilerplate** (Spring's `HELP.md`) with a real project `README`.
+### 2.1 Run surface (clean-machine runnable — `loop.md` baseline)
+Ship, from `templates/`, parameterized to the chosen build tool + pinned JDK:
+- a **multi-stage `Dockerfile`** — build stage on a JDK build image running the wrapper, runtime stage
+  on the matching JRE image with the jar — so the host needs only Docker.
+- a **`docker-compose.yml`** wiring `app` + the real engine (default Postgres); the app waits on a DB
+  **healthcheck** (`depends_on: { db: { condition: service_healthy } }`) — load-bearing because
+  Liquibase applies migrations on boot and otherwise races an unready DB (§7).
+- a **`Makefile`** entrypoint: `run` (`docker compose up --build`, real engine) · `test`
+  (`./mvnw verify` / `./gradlew test` — H2, no Docker) · `build` · `down` · `dev` (`docker compose up
+  -d db`, then native `spring-boot:run` for fast reload).
 
 ## 3. Architecture — hexagonal
 - **Single build module, hexagon expressed as packages — in all cases** (single-context service and
@@ -63,9 +76,21 @@
     (bean wiring, `@RestControllerAdvice`, app config) · `Application.java`.
 - **Wiring:** a `config` `@Configuration` with one `@Bean` per use-case, `new`-ing the impls and
   injecting the adapter beans — so use-case impls stay plain classes.
+- **Constructor injection on the Spring side:** annotate Spring-side beans (controllers, `adapter/out`
+  persistence adapters, `config` components) with **`@RequiredArgsConstructor`** and inject through
+  `final` fields — don't hand-write the constructor. Keep an explicit constructor only when it
+  transforms/validates a dependency or a parameter needs an annotation Lombok won't copy (`@Value`,
+  `@Qualifier`). **Core types stay annotation-free** — use-case impls are plain classes wired by `new`
+  in `config`, so their constructors stay hand-written.
 - **Segregated ports (ISP):** each port interface declares exactly **one method**. Use cases declare
   only the ports they actually need as constructor dependencies — never a fat repository interface.
   `port/in/` follows the same rule: one interface per use case (or per query).
+- **No type-code multiplexing:** never branch behavior on a type-code discriminator — a
+  `type`/`kind`/`entityType`/`updateType` field switched inside one class. Split into **one use-case
+  per (entity × operation)** — the one-operation-per-class rule applied to the whole matrix of
+  variants (A7 already forbids the multi-method class this would otherwise become). Model partial
+  updates by **field presence** (PATCH semantics: a field present means write it), not an
+  update-type enum — enumerating field combinations blows up combinatorially.
 - **Base package** `com.<org>.<app>`, shared across the codebase.
 - **Optional `business/` grouping:** teams may group the framework-free core under `business/`
   (`business/{domain,port,usecase}`), leaving `adapter`/`config` at the base package — the ArchUnit
@@ -73,7 +98,9 @@
   no rule changes.
 - **Generic base scaffolding (always present):** `UseCaseConfig` (the wiring root) · a
   `GlobalExceptionHandler` (`@RestControllerAdvice`) returning a shared **`ApiError`** record (the
-  standard error-response shape) · `AbstractIntegrationTest` base test.
+  standard error-response shape) · a **`DomainException`** base (unchecked, in `domain/exception/`) that
+  value-object invariant checks throw (§5) and `GlobalExceptionHandler` maps to `ApiError` ·
+  `AbstractIntegrationTest` base test.
 - **Modulith monolith:** the *vertical* split = Spring Modulith modules as top-level packages
   (`com.app.train`, `com.app.jobs`, …), each internally layered as above. Modules talk through
   published API packages + Modulith events.
@@ -99,7 +126,10 @@ They hold the hexagon; a violation fails the build.
   (composition root `config` exempt); (A4) inbound adapters depend on `port/in`, never on the
   use-case impls; (A5) no JPA at the web edge; (A6) outbound-port implementations live in
   `adapter/out`; (A7) each class in `..usecase..` exposes at most one public non-constructor method —
-  enforces one-operation-per-class.
+  enforces one-operation-per-class. On a freshly scaffolded skeleton the rings are empty, so these rules
+  match zero classes and ArchUnit's default `failOnEmptyShould=true` fails the build before any feature
+  code exists — ship `src/test/resources/archunit.properties` with `archRule.failOnEmptyShould=false`;
+  the rules activate automatically as slices populate the rings.
 - **(B) Spring Modulith — monolith only** — `ApplicationModules.of(App.class).verify()` guards the
   module boundaries. Skip it for a single-context service; A + C already hold the hexagon there.
 - **(C) JMolecules — always** — annotate the hexagon with the real stereotypes (on each ring's
@@ -165,17 +195,28 @@ They hold the hexagon; a violation fails the build.
   classes after the schema, so the suffix carries the request/response distinction (e.g.
   `CreateAccountRequestBody`, `AccountResponseBody`).
 - **Generator config (Boot 4):** `useSpringBoot4=true` +
-  `importMappings=Nullable=org.jspecify.annotations.Nullable` + the `org.jspecify:jspecify` dep.
+  `importMappings=Nullable=org.jspecify.annotations.Nullable` + the `org.jspecify:jspecify` dep. Default
+  to **plain POJOs, no springdoc/Swagger dependency**: set `documentationProvider=none` +
+  `annotationLibrary=none` — otherwise the generator emits `io.swagger.v3.oas.annotations…@Schema`
+  imports that the conventions never put on the classpath, and compilation fails — plus
+  `skipDefaultInterface=true` (skips the `ApiUtil` supporting file). Opt back into springdoc annotations
+  only if a project deliberately serves its own API docs.
 - **Hand-written contracts** (when a project doesn't generate them): organized by direction per §4
   (`adapter/in/contracts/request/` + `/response/`). Generated contracts instead stay flat in
   `adapter/in/contracts` — the `...RequestBody`/`...ResponseBody` suffix carries direction there.
 
 ## 7. Persistence — schema, entities & mapping
-**Base config (`application.yaml`):**
-- `spring.jpa.open-in-view: false` · `spring.jpa.hibernate.ddl-auto: none`.
-- Dev/test stand-in (default H2): `jdbc:h2:mem:appdb;DB_CLOSE_DELAY=-1` in the prod engine's
-  compatibility mode (h2-console enabled for dev only).
-- `spring.liquibase.change-log: classpath:db/changelog/db.changelog-master.yaml`.
+**Base config:**
+- `spring.jpa.open-in-view: false` · `spring.jpa.hibernate.ddl-auto: none` ·
+  `spring.liquibase.change-log: classpath:db/changelog/db.changelog-master.yaml`.
+- **Default datasource = the real engine (default Postgres), env-driven.** The running app (dev,
+  `make run`, prod) reads `SPRING_DATASOURCE_*` from the environment (compose/host supplies them); the
+  `run` surface (§2) points it at the compose engine container. You develop and ship against the same
+  engine — no separate "prod profile" bolted on; the default *is* the real engine.
+- **H2 is test-only.** The fast container-free suite runs on H2 in the prod engine's compatibility mode
+  (`jdbc:h2:mem:appdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL`), configured on the **test classpath**
+  (`src/test/resources/application.yaml`) with the H2 dependency at **`test` scope**; h2-console is a
+  test-run aid. H2 never backs a running app.
 
 **Schema (Liquibase):**
 - **Liquibase is the sole schema owner** (SQL formatted changelogs).
@@ -236,6 +277,9 @@ The **responsible test pyramid** — principle in `loop.md §2`; the Spring spec
   slices · H2 `@DataJpaTest` for portable persistence · optionally a wired HTTP smoke via
   `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `RestClient` + `@LocalServerPort` (Boot 4 no longer
   auto-registers `TestRestTemplate`). This is where behavioral coverage lives.
+  - **H2-fidelity tripwire:** when a `@DataJpaTest` / slice needs behavior H2 can't faithfully reproduce
+    (engine-specific SQL/operators, real migration apply), **promote that test to the real-DB IT stage
+    below** — never soften the assertion or add engine-specific SQL just to keep it green on H2.
 - **Real-DB integration layer (small, justified, contained):** only for genuine engine behavior the
   stand-in can't fake — engine-specific SQL (e.g. Postgres `jsonb`/window functions, a `pgvector`
   vector index, engine-native upsert), real migration apply. Each IT must *name* that behavior;
@@ -255,9 +299,10 @@ The **responsible test pyramid** — principle in `loop.md §2`; the Spring spec
 ### 10.1 Live-verify surface — the standing aggregate e2e journey
 Expose **one** secret-guarded `POST /internal/e2e` backed by a framework-free `E2eUseCase` that drives
 **every inbound port** (`port/in`) against the real DB + real providers and returns a content-asserting
-`E2eResult` the post-deploy verifier checks field-by-field. Run it inside a **transaction that always
+`E2eResult` the live-verify gate checks field-by-field. Run it inside a **transaction that always
 rolls back** (`TransactionRunner.runAndRollback` — rollback on the adapter side, orchestration in the
 core) so it mutates nothing. Secret-guarded and **safe-by-default: 404 when the secret is unset**.
 **Rule: every new `port/in` is wired into `E2eUseCase` and asserted before its slice is done** — so
 live coverage tracks the use-case set by construction, not per-slice bespoke scripts. (This is the
-deployed check in `loop.md` step 8.)
+assembled-system check in `loop.md` step 8 — run against the deployed build, or the local composed stack
+via `make run` when deploy is optional.)

@@ -1,0 +1,11 @@
+# Keep the build context lean and deterministic: the build stage compiles from source, so host build
+# output, VCS, and IDE files must not leak in (a stray host jar in target/ would make the runtime
+# stage's `COPY target/*.jar` ambiguous).
+target/
+.git/
+.github/
+.githooks/
+.idea/
+*.iml
+.conventions/
+.claude/

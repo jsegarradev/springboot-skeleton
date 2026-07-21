@@ -32,8 +32,9 @@ Confirm the conventions skeleton + gate stack are present (build files, hexagon/
    - **loop = yes** → implement via `loop.md`; its plan step **provisions the live-test surface**
      (e2e endpoint / Playwright spec) as a planned deliverable.
    - **live-test = yes** → living app (deployed, or convert = yes) ⇒ live-verify against the **deployed
-     build** (the post-deploy verifier hits the provisioned e2e surface); not deployed & not converting
-     ⇒ live-verify the **locally-run** app and note it.
+     build** (the live-verify gate hits the provisioned e2e surface); not deployed & not converting
+     ⇒ live-verify against the **local composed stack** (`make run`) with the same verifier
+     (`APP_URL=http://localhost:8080`) — real image + real infra, not a dev-mode boot.
    - **live-test = no** → build + gates only; no e2e surface is provisioned.
 
 ## Build it through `loop.md` (this also validates the loop + gates)
@@ -60,13 +61,18 @@ Drive the dummy slice with the normal per-slice loop and the full `gates.md` sta
   - **Done:** the page displays the value that originated in the DB and arrived via HTTP.
 
 ## Close out
+- **Prove the run surface** — `make run` brings the app up on a clean machine (Docker only) and the
+  dummy endpoint/page responds; `make test` is green with **no Docker**. This is the
+  clean-machine "anyone can run it" check (`gates.md`), verified once here.
 - Mechanical gate (formatter · compile · ArchUnit/JMolecules) green → commit per `git.md` (one
   component per commit) → CI green → deploy → **live-verify the deployed dummy** (real request/response
   for the endpoint; drive the page for the UI). If no deploy target is configured yet, live-verify the
-  locally-run app and note it.
+  dummy against the **composed stack** (`make run` → verifier at `APP_URL=http://localhost:8080`) — the
+  assembled system, not a dev boot.
 - Log any process friction to `FRICTION.md` — this run is where the verify-on-first-use items
   (Boot ↔ Java version, ArchUnit/JMolecules APIs, codegen) get validated.
 
 ## Output
 A running app with a working dummy slice end-to-end, proving the stack, loop, and gates before real
-features. The dummy can be removed when the first real slice lands.
+features — **runnable by anyone on a clean machine (Docker only) via `make run`**. The dummy can be
+removed when the first real slice lands.

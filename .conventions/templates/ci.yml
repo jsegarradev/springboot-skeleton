@@ -1,6 +1,11 @@
-# GitHub Actions CI gate — the server-side, unbypassable layer. One `ci` check runs whichever
-# components the repo holds; branch protection (protect-main.sh) requires it green before merge.
-# → .github/workflows/ci.yml
+# GitHub Actions CI gate — the server-side, unbypassable layer; branch protection (protect-main.sh)
+# requires it green before merge. → .github/workflows/ci.yml
+#
+# This template is the full multi-component reference. scaffold-project emits only the steps for the
+# components the repo actually holds — a backend-only repo gets Backend + setup-java (no setup-node /
+# Frontend); a frontend-only repo gets the reverse; a monorepo keeps both. Every step (including the
+# language setups) carries a hashFiles(...) guard, so whatever is emitted still no-ops safely if its
+# component is later removed, and a component added later activates without breaking the build.
 name: ci
 
 on:
@@ -14,11 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
+        if: ${{ hashFiles('pom.xml') != '' }}
         with:
           distribution: temurin
           java-version: '25'
           cache: maven
       - uses: actions/setup-node@v5
+        if: ${{ hashFiles('frontend/package.json') != '' }}
         with:
           node-version: 'lts/*'
 

@@ -64,7 +64,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-liquibase</artifactId>
         </dependency>
-        <!-- Prod DB driver (default PostgreSQL); H2 is the faithful lighter stand-in for tests. -->
+        <!-- Default engine = PostgreSQL (the running app always uses it); H2 is the test-only stand-in. -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -73,11 +73,12 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-h2console</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Contract-first: jspecify for the OpenAPI generator's Nullable import mapping. -->

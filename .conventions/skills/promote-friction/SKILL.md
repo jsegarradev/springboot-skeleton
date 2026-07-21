@@ -18,7 +18,8 @@ never stamp one project's stack onto the shared conventions. (This is exactly ho
 project once leaked `pgvector`/Postgres into the shared docs as if universal.)
 
 ## Guard (blocking, first)
-Confirm `FRICTION.md` exists and has entries. If absent or empty, stop.
+Confirm `FRICTION.md` exists on disk and has entries (it may be git-ignored rather than committed — the
+scaffold default — which is fine; read it from the working tree). If absent or empty, stop.
 
 ## Steps
 1. **Read + cluster** — parse `FRICTION.md` (and, if present, OMC's ledger blocker/failure/re-slice

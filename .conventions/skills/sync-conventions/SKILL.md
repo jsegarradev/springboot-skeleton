@@ -18,8 +18,10 @@ to central); this pulls central updates *down* — safely, without losing un-pro
 - You want to send a project's friction *up* to central → `promote-friction`.
 
 ## Guard (blocking, first)
-Run inside the project (a `.conventions/` directory is present). Confirm the project working tree is
-clean (at least `.conventions/` and the wired artifacts are committed) so the sync is reviewable.
+Run inside the project (a `.conventions/` directory is present on disk — it may be git-ignored rather
+than committed, which is the scaffold default; either is fine). Confirm the working tree is clean for
+whatever **is** tracked (committed wired artifacts, and `.conventions/` if the project opted to commit
+it) so the sync is reviewable; when `.conventions/` is git-ignored, review the diff directly instead.
 
 ## Step 1 — Find the canonical source (provenance)
 Read `.conventions/SOURCE` (stamped at copy time): the **repo URL** and the **commit** the copy came

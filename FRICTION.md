@@ -19,6 +19,13 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
 - **What happened:** the freshly scaffolded skeleton has **no Makefile and no Dockerfile/docker-compose**. The only documented run path is `./mvnw spring-boot:run` against H2 — which silently assumes the author's box already has **JDK 25 + Maven + (for the prod profile) Postgres** installed and configured. To run it as intended, a fresh machine needs several manual setup steps, and JDK 25 is bleeding-edge so a clean machine almost certainly lacks it. There is no single toolchain-agnostic entrypoint and nothing that stands up the datastore. Surfaced while adapting the skeleton for an external take-home that explicitly **requires a Makefile with a `run` target** and states the app "will be run on a clean machine with almost no dependencies … one or two commands at most." The conventions optimize the *inner dev-loop* but never produce a portable *"here is how anyone runs this"* surface — so the walking-skeleton's own "human-visible running app" gate only holds on the author's pre-provisioned machine, not a clean one.
 - **How resolved:** (for the challenge, pattern to generalize) — added three artifacts: (1) a **multi-stage Dockerfile** (build on `maven:…-temurin-25` → ship on `temurin:25-jre` + the jar; host needs only Docker); (2) a **docker-compose.yml** wiring `app` + `postgres`, with a DB **healthcheck** + `depends_on: { condition: service_healthy }` — required because Liquibase runs on app startup and otherwise races an unready DB; (3) a **Makefile** as the single entrypoint: `run` (`docker compose up --build`), `test` (`./mvnw verify`, H2, no Docker), `down`, `dev` (`spring-boot:run`).
 - **Proposed change:** the green skeleton is **not "green" until a clean machine can run it in ≤2 commands.** walking-skeleton (and scaffold-project) should emit, as part of that skeleton: a **Makefile** with a framework-agnostic target set (`run` / `test` / `build` / `down`) as the toolchain-agnostic entrypoint; a **multi-stage Dockerfile**; and a **docker-compose.yml** wiring the app to its datastore with a healthcheck + `service_healthy` gate (the migration-races-DB pitfall is general, not challenge-specific). Per-framework fillings behind the same targets (Spring: compose + `mvnw`; Angular: `ng serve` / `ng test`). Tie it to `gates.md`: extend the "human-visible running app" gate to "…runnable by *anyone* on a clean machine, not just on the author's configured box."
+- **→ promoted 2026-07-20** to `loop.md` (baseline: green skeleton runs on a clean machine via a uniform
+  `run`/`test`/`build`/`down` entrypoint), `gates.md` (proven-once + checklisted — a convention, not a
+  hard gate; **note:** no named "human-visible running app" gate actually existed, so it was *added*),
+  `springboot.md` §2 (Spring binding) + §7 (datastore inverted — real engine is the default run/dev/prod
+  datasource, H2 demoted to `test` scope) + §1 + §10 (H2-fidelity tripwire), `angular.md` §2, and
+  `skills/{scaffold-project,walking-skeleton}`. New `templates/{Makefile,Dockerfile,docker-compose.yml}`.
+  Datastore refinement (H2 tests-only / real-DB default) decided with the user during promotion.
 
 ## 2026-07-20 — `ci.yml` ships Angular/monorepo frontend steps into a backend-only repo
 - **Where:** scaffold-project (gate install) · framework-agnostic · implicates `gates.md` + `templates/ci.yml`
@@ -98,6 +105,10 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
 - **Proposed change:** scaffold-project and adopt-conventions should **force `.conventions/`, `.claude/`, and `FRICTION.md`
   into `.gitignore` by default**, committing any of them only when the user explicitly opts in (e.g. wants a self-contained
   repo, or wants the friction log shared with the team). Make it a documented default / interview question, not implicit.
+- **→ promoted 2026-07-21** to `skills/{scaffold-project,adopt-conventions}` (git-ignore the three
+  artifacts by default; ask once to opt into committing) + relaxed the `skills/{sync-conventions,promote-friction}`
+  guards to read the local working-tree copies (present-on-disk, not necessarily committed). Interview-default
+  approach (not a hard force) chosen with the user to preserve the travel-with-project / reviewable-sync model.
 
 ## 2026-07-18 — OpenAPI generator emits Swagger `@Schema`, breaking compile on a no-swagger setup
 - **Where:** walking-skeleton (contract-first codegen) · Spring Boot · implicates `springboot.md#6`
@@ -109,6 +120,8 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
   no swagger dep. (Also `skipDefaultInterface=true` to avoid needing the `ApiUtil` supporting file.)
 - **Proposed change:** add these three configOptions to the §6 generator config snippet (default to plain POJOs
   unless the project deliberately wants springdoc).
+- **→ promoted 2026-07-21** to `springboot.md#6` (generator now defaults to plain POJOs —
+  `documentationProvider=none` + `annotationLibrary=none` + `skipDefaultInterface=true`).
 
 ## 2026-07-18 — ArchUnit rules fail on the empty skeleton (`failOnEmptyShould`)
 - **Where:** scaffold-project (bare skeleton, empty hexagon rings) · Spring Boot · implicates `gates.md` (ArchitectureTest template) + `springboot.md#3.1`
@@ -119,3 +132,5 @@ the automatic floor; these entries add the human-readable *what + why + fix*.
   rules activate automatically as slices populate the rings (validated: they went active on the walking-skeleton slice).
 - **Proposed change:** ship `archunit.properties` (with `failOnEmptyShould=false`) alongside the `ArchitectureTest`
   template, and note in `springboot.md#3.1` that a scaffold needs it until the first slice lands.
+- **→ promoted 2026-07-21** to `springboot.md#3.1` (empty-rings note + `archunit.properties` with
+  `failOnEmptyShould=false`) and `gates.md` install step 3 (pointer).

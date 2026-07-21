@@ -32,7 +32,7 @@ class ArchitectureTest {
     // (A2) no framework annotations on core types
     @ArchTest
     static final ArchRule core_has_no_framework_annotations = noClasses().that()
-            .resideInAnyPackage("..domain..", "..usecase..").should()
+            .resideInAnyPackage("..domain..", "..usecase..", "..port..").should()
             .beAnnotatedWith("org.springframework.stereotype.Service").orShould()
             .beAnnotatedWith("org.springframework.transaction.annotation.Transactional").orShould()
             .beAnnotatedWith("jakarta.persistence.Entity");

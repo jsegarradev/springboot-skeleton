@@ -3,6 +3,7 @@ package dev.jsegarra.skeleton.adapter.in;
 import dev.jsegarra.skeleton.adapter.in.contracts.DummyApi;
 import dev.jsegarra.skeleton.adapter.in.contracts.DummyResponseBody;
 import dev.jsegarra.skeleton.port.in.GetDummy;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -11,15 +12,11 @@ import org.springframework.web.bind.annotation.RestController;
  * output to the response DTO — no core type is serialized raw (springboot.md §3).
  */
 @RestController
+@RequiredArgsConstructor
 public class DummyController implements DummyApi {
 
     private final GetDummy getDummy;
     private final DummyResponseMapper mapper;
-
-    public DummyController(final GetDummy getDummy, final DummyResponseMapper mapper) {
-        this.getDummy = getDummy;
-        this.mapper = mapper;
-    }
 
     @Override
     public ResponseEntity<DummyResponseBody> getDummy() {
